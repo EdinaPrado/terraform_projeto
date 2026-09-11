@@ -1,93 +1,147 @@
 # terraform_projeto
 
+Infraestrutura como código (IaC) na AWS usando Terraform, organizada em módulos reutilizáveis para provisionar rede e computação.
 
+## Descrição
 
-## Getting started
+Este projeto provisiona, de forma automatizada, uma infraestrutura básica na AWS composta por uma VPC com subnet pública e uma instância EC2 associada, utilizando Amazon Linux 2023. A infraestrutura é dividida em dois módulos Terraform: `network` (rede) e `compute` (computação), promovendo reuso e organização do código.
 
-To make it easy for you to get started with GitLab, here's a list of recommended next steps.
-
-Already a pro? Just edit this README.md and make it your own. Want to make it easy? [Use the template at the bottom](#editing-this-readme)!
-
-## Add your files
-
-* [Create](https://docs.gitlab.com/user/project/repository/web_editor/#create-a-file) or [upload](https://docs.gitlab.com/user/project/repository/web_editor/#upload-a-file) files
-* [Add files using the command line](https://docs.gitlab.com/topics/git/add_files/#add-files-to-a-git-repository) or push an existing Git repository with the following command:
+## Arquitetura
 
 ```
-cd existing_repo
-git remote add origin https://gitlab.com/edina25-group/terraform_projeto.git
-git branch -M main
-git push -uf origin main
+terraform_projeto/
+├── main.tf              # Orquestra os módulos network e compute
+├── data.tf              # Data source para a AMI mais recente (Amazon Linux 2023)
+├── locals.tf            # Valores locais (ex: name_prefix)
+├── variables.tf          # Variáveis de entrada do projeto raiz
+├── outputs.tf            # Outputs expostos pelo projeto raiz
+├── providers.tf          # Configuração do provider AWS
+├── versions.tf            # Versões do Terraform e dos providers
+├── terraform.tfvars      # Valores das variáveis (não versionar dados sensíveis)
+└── modules/
+    ├── network/
+    │   ├── main.tf        # VPC, subnet pública, internet gateway, route table
+    │   ├── variables.tf   # Variáveis do módulo (vpc_cidr, name_prefix, etc.)
+    │   └── outputs.tf     # vpc_id, public_subnet_id
+    └── compute/
+        ├── main.tf        # Security group e instância EC2
+        ├── variables.tf   # Variáveis do módulo (ami_id, instance_type, etc.)
+        └── outputs.tf     # instance_id, public_ip, private_ip, security_group_id
 ```
 
-## Integrate with your tools
+### Módulo `network`
 
-* [Set up project integrations](https://gitlab.com/edina25-group/terraform_projeto/-/settings/integrations)
+Responsável por criar a rede da aplicação:
 
-## Collaborate with your team
+- VPC com CIDR block configurável
+- Subnet pública
+- Internet Gateway
+- Route table pública e associação com a subnet
 
-* [Invite team members and collaborators](https://docs.gitlab.com/user/project/members/)
-* [Create a new merge request](https://docs.gitlab.com/user/project/merge_requests/creating_merge_requests/)
-* [Automatically close issues from merge requests](https://docs.gitlab.com/user/project/issues/managing_issues/#closing-issues-automatically)
-* [Enable merge request approvals](https://docs.gitlab.com/user/project/merge_requests/approvals/)
-* [Set auto-merge](https://docs.gitlab.com/user/project/merge_requests/auto_merge/)
+**Variáveis de entrada:**
 
-## Test and Deploy
+| Nome | Descrição | Tipo |
+|---|---|---|
+| `name_prefix` | Prefixo usado para nomear os recursos | `string` |
+| `vpc_cidr` | CIDR block da VPC | `string` |
+| `public_subnet_cidr` | CIDR block da subnet pública | `string` |
+| `availability_zone` | Availability zone onde a subnet será criada | `string` |
 
-Use the built-in continuous integration in GitLab.
+**Outputs:**
 
-* [Get started with GitLab CI/CD](https://docs.gitlab.com/ci/quick_start/)
-* [Analyze your code for known vulnerabilities with Static Application Security Testing (SAST)](https://docs.gitlab.com/user/application_security/sast/)
-* [Deploy to Kubernetes, Amazon EC2, or Amazon ECS using Auto Deploy](https://docs.gitlab.com/topics/autodevops/requirements/)
-* [Use pull-based deployments for improved Kubernetes management](https://docs.gitlab.com/user/clusters/agent/)
-* [Set up protected environments](https://docs.gitlab.com/ci/environments/protected_environments/)
+| Nome | Descrição |
+|---|---|
+| `vpc_id` | ID da VPC criada |
+| `public_subnet_id` | ID da subnet pública criada |
 
-***
+### Módulo `compute`
 
-# Editing this README
+Responsável por criar os recursos de computação:
 
-When you're ready to make this README your own, just edit this file and use the handy template below (or feel free to structure it however you want - this is just a starting point!). Thanks to [makeareadme.com](https://www.makeareadme.com/) for this template.
+- Security Group (libera SSH na porta 22)
+- Instância EC2 (Amazon Linux 2023)
 
-## Suggestions for a good README
+**Variáveis de entrada:**
 
-Every project is different, so consider which of these sections apply to yours. The sections used in the template are suggestions for most open source projects. Also keep in mind that while a README can be too long and detailed, too long is better than too short. If you think your README is too long, consider utilizing another form of documentation rather than cutting out information.
+| Nome | Descrição | Tipo |
+|---|---|---|
+| `name_prefix` | Prefixo usado para nomear os recursos | `string` |
+| `ami_id` | ID da AMI usada na instância EC2 | `string` |
+| `instance_type` | Tipo da instância EC2 | `string` |
+| `subnet_id` | ID da subnet onde a instância será criada | `string` |
+| `vpc_id` | ID da VPC onde os recursos serão criados | `string` |
 
-## Name
-Choose a self-explaining name for your project.
+**Outputs:**
 
-## Description
-Let people know what your project can do specifically. Provide context and add a link to any reference visitors might be unfamiliar with. A list of Features or a Background subsection can also be added here. If there are alternatives to your project, this is a good place to list differentiating factors.
+| Nome | Descrição |
+|---|---|
+| `instance_id` | ID da instância EC2 criada |
+| `public_ip` | IP público da instância EC2 |
+| `private_ip` | IP privado da instância EC2 |
+| `security_group_id` | ID do security group da instância |
 
-## Badges
-On some READMEs, you may see small images that convey metadata, such as whether or not all the tests are passing for the project. You can use Shields to add some to your README. Many services also have instructions for adding a badge.
+## Pré-requisitos
 
-## Visuals
-Depending on what you are making, it can be a good idea to include screenshots or even a video (you'll frequently see GIFs rather than actual videos). Tools like ttygif can help, but check out Asciinema for a more sophisticated method.
+- [Terraform](https://developer.hashicorp.com/terraform/downloads) instalado
+- Conta AWS com credenciais configuradas (`aws configure` ou variáveis de ambiente)
+- Permissões IAM para criar VPC, subnet, EC2, security group
 
-## Installation
-Within a particular ecosystem, there may be a common way of installing things, such as using Yarn, NuGet, or Homebrew. However, consider the possibility that whoever is reading your README is a novice and would like more guidance. Listing specific steps helps remove ambiguity and gets people to using your project as quickly as possible. If it only runs in a specific context like a particular programming language version or operating system or has dependencies that have to be installed manually, also add a Requirements subsection.
+## Instalação e uso
 
-## Usage
-Use examples liberally, and show the expected output if you can. It's helpful to have inline the smallest example of usage that you can demonstrate, while providing links to more sophisticated examples if they are too long to reasonably include in the README.
+1. Clone o repositório:
+   ```bash
+   git clone https://gitlab.com/edina25-group/terraform_projeto.git
+   cd terraform_projeto
+   ```
 
-## Support
-Tell people where they can go to for help. It can be any combination of an issue tracker, a chat room, an email address, etc.
+2. Inicialize o Terraform (baixa providers e módulos):
+   ```bash
+   terraform init
+   ```
 
-## Roadmap
-If you have ideas for releases in the future, it is a good idea to list them in the README.
+3. Valide a sintaxe da configuração:
+   ```bash
+   terraform validate
+   ```
 
-## Contributing
-State if you are open to contributions and what your requirements are for accepting them.
+4. Visualize o plano de execução (o que será criado):
+   ```bash
+   terraform plan
+   ```
 
-For people who want to make changes to your project, it's helpful to have some documentation on how to get started. Perhaps there is a script that they should run or some environment variables that they need to set. Make these steps explicit. These instructions could also be useful to your future self.
+5. Aplique a infraestrutura:
+   ```bash
+   terraform apply
+   ```
 
-You can also document commands to lint the code or run tests. These steps help to ensure high code quality and reduce the likelihood that the changes inadvertently break something. Having instructions for running tests is especially helpful if it requires external setup, such as starting a Selenium server for testing in a browser.
+6. Consulte os outputs gerados (ex: IP da instância):
+   ```bash
+   terraform output
+   ```
 
-## Authors and acknowledgment
-Show your appreciation to those who have contributed to the project.
+7. Para destruir a infraestrutura ao final do uso:
+   ```bash
+   terraform destroy
+   ```
 
-## License
-For open source projects, say how it is licensed.
+## Variáveis principais do projeto
 
-## Project status
-If you have run out of energy or time for your project, put a note at the top of the README saying that development has slowed down or stopped completely. Someone may choose to fork your project or volunteer to step in as a maintainer or owner, allowing your project to keep going. You can also make an explicit request for maintainers.
+Defina os valores no arquivo `terraform.tfvars` (não versionado com dados sensíveis) ou via linha de comando:
+
+| Nome | Descrição | Default |
+|---|---|---|
+| `aws_region` | Região AWS onde os recursos serão criados | `us-east-1` |
+| `environment` | Nome do ambiente (`dev`, `qa` ou `prod`) | — |
+| `project_name` | Nome do projeto | — |
+| `instance_type` | Tipo da instância EC2 | `t3.micro` |
+
+## Observações
+
+- O CIDR da VPC utilizado neste projeto é `10.18.0.0/16`, com subnet pública `10.18.1.0/24`.
+- A AMI utilizada é obtida dinamicamente via `data "aws_ami"`, sempre buscando a versão mais recente do Amazon Linux 2023 disponível na região.
+- O arquivo `terraform.tfstate` **não deve ser versionado** — ele está listado no `.gitignore` por conter informações sensíveis sobre a infraestrutura provisionada.
+- Contas AWS possuem, por padrão, um limite de 5 VPCs por região. Caso o `apply` falhe com `VpcLimitExceeded`, é necessário remover VPCs não utilizadas ou solicitar aumento de quota antes de tentar novamente.
+
+## Autoria
+
+Projeto desenvolvido por Édina Prado como parte de laboratório prático de Terraform na AWS.
